@@ -14,10 +14,15 @@ pub struct InvoiceContract;
 
 #[contractimpl]
 impl InvoiceContract {
-    pub fn initialize(env: Env, admin: Address) {
+    pub fn initialize(env: Env, admin: Address) -> Result<(), InvoiceError> {
+        if env.storage().instance().has(&DataKey::Admin) {
+            return Err(InvoiceError::AlreadyInitialized);
+        }
+        admin.require_auth();
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage().instance().set(&DataKey::InvoiceCount, &0u64);
         env.storage().instance().set(&DataKey::Paused, &false);
+        Ok(())
     }
 
     pub fn create_invoice(
@@ -31,13 +36,21 @@ impl InvoiceContract {
         require_not_paused(&env)?;
         require_positive_amount(amount_usdc, gross_usdc)?;
 
+        if expires_in_seconds == 0 {
+            return Err(InvoiceError::ZeroDuration);
+        }
+
         let count: u64 = env
             .storage()
             .instance()
             .get(&DataKey::InvoiceCount)
             .unwrap_or(0);
         let id = count + 1;
-        let expires_at = env.ledger().timestamp() + expires_in_seconds;
+        let expires_at = env
+            .ledger()
+            .timestamp()
+            .checked_add(expires_in_seconds)
+            .ok_or(InvoiceError::ExpiryOverflow)?;
         let invoice = Invoice {
             id,
             merchant: merchant.clone(),
@@ -46,7 +59,7 @@ impl InvoiceContract {
             status: InvoiceStatus::Pending,
             expires_at,
             paid_at: None,
-            payer: merchant,
+            payer: None,
         };
 
         env.storage()
@@ -70,22 +83,23 @@ impl InvoiceContract {
             .storage()
             .persistent()
             .get(&DataKey::Invoice(id))
-            .unwrap();
+            .ok_or(InvoiceError::NotFound)?;
 
         if invoice.status != InvoiceStatus::Pending {
             return Err(InvoiceError::NotPending);
         }
-        if env.ledger().timestamp() > invoice.expires_at {
+        if env.ledger().timestamp() >= invoice.expires_at {
             invoice.status = InvoiceStatus::Expired;
             env.storage()
                 .persistent()
                 .set(&DataKey::Invoice(id), &invoice);
+            events::invoice_expired(&env, id, &invoice);
             return Err(InvoiceError::Expired);
         }
 
         invoice.status = InvoiceStatus::Paid;
         invoice.paid_at = Some(env.ledger().timestamp());
-        invoice.payer = payer;
+        invoice.payer = Some(payer);
         env.storage()
             .persistent()
             .set(&DataKey::Invoice(id), &invoice);
@@ -93,11 +107,11 @@ impl InvoiceContract {
         Ok(())
     }
 
-    pub fn get_invoice(env: Env, id: u64) -> Invoice {
+    pub fn get_invoice(env: Env, id: u64) -> Result<Invoice, InvoiceError> {
         env.storage()
             .persistent()
             .get(&DataKey::Invoice(id))
-            .unwrap()
+            .ok_or(InvoiceError::NotFound)
     }
 
     pub fn pause(env: Env, admin: Address) -> Result<(), InvoiceError> {

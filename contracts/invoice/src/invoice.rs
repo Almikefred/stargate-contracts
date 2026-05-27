@@ -9,6 +9,10 @@ pub enum InvoiceError {
     InvalidAmount = 3,
     NotPending = 4,
     Expired = 5,
+    NotFound = 6,
+    AlreadyInitialized = 6,
+    ZeroDuration = 7,
+    ExpiryOverflow = 8,
 }
 
 #[contracttype]
@@ -30,7 +34,7 @@ pub struct Invoice {
     pub status: InvoiceStatus,
     pub expires_at: u64,
     pub paid_at: Option<u64>,
-    pub payer: Address,
+    pub payer: Option<Address>,
 }
 
 #[contracttype]
