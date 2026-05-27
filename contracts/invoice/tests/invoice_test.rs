@@ -57,6 +57,16 @@ fn test_pause_blocks_create_invoice() {
 }
 
 #[test]
+fn test_pause_blocks_mark_paid() {
+    let (env, admin, client) = setup();
+    let merchant = Address::generate(&env);
+    let payer = Address::generate(&env);
+    let id = client.create_invoice(&merchant, &10_000_000, &10_250_000, &3600);
+    client.pause(&admin);
+    assert!(client.try_mark_paid(&admin, &id, &payer).is_err());
+}
+
+#[test]
 fn test_double_payment_rejected() {
     let (env, admin, client) = setup();
     let merchant = Address::generate(&env);

@@ -1,4 +1,12 @@
-use soroban_sdk::{contracttype, Address, Vec};
+use soroban_sdk::{contracterror, contracttype, Address, Vec};
+
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum TreasuryError {
+    AlreadyInitialized = 1,
+    ZeroThreshold = 2,
+}
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
