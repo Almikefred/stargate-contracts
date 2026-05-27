@@ -21,6 +21,7 @@ jobs:
       # Run clippy lints with all warnings treated as errors (-D warnings)
       - run: cargo clippy -- -D warnings
       # Run all unit and integration tests
+      - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
       # Build WASM binaries for Soroban runtime
       - run: cargo build --target wasm32-unknown-unknown --release
