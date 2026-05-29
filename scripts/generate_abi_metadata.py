@@ -76,6 +76,17 @@ def format_treasury(payload: dict) -> str:
     )
 
 
+def format_compliance(payload: dict) -> str:
+    functions = ",\n    ".join(f'"{name}"' for name in payload["functions"])
+    return (
+        "{\n"
+        f'  "contract": "{payload["contract"]}",\n'
+        f'  "version": "{payload["version"]}",\n'
+        f'  "functions": [\n    {functions}\n  ]\n'
+        "}\n"
+    )
+
+
 def main() -> None:
     out_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "abis"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -95,6 +106,13 @@ def main() -> None:
         "threshold": "2-of-3",
     }
     (out_dir / "treasury.json").write_text(format_treasury(treasury), encoding="utf-8")
+
+    compliance = {
+        "contract": "compliance",
+        "version": package_version("compliance"),
+        "functions": contract_public_functions("compliance"),
+    }
+    (out_dir / "compliance.json").write_text(format_compliance(compliance), encoding="utf-8")
 
 
 if __name__ == "__main__":

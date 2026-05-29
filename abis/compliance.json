@@ -1,0 +1,13 @@
+{
+  "contract": "compliance",
+  "version": "1.0.0",
+  "functions": [
+    "initialize",
+    "is_allowed",
+    "allow_address",
+    "block_address",
+    "clear_address",
+    "pause",
+    "unpause"
+  ]
+}

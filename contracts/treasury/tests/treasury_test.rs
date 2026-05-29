@@ -10,6 +10,21 @@ fn setup(env: &Env, threshold: u32) -> (TreasuryContractClient, Address, Address
     (client, admin, id)
 }
 
+fn setup_with_backup(env: &Env) -> (Env, Address, Address, TreasuryContractClient<'static>) {
+    let (client, admin, _) = setup(env, 2);
+    let backup = Address::generate(env);
+    client.set_signer(&admin, &backup, &1);
+    (env.clone(), admin, backup, client)
+}
+
+// Original test — approvals accumulate until threshold
+#[test]
+fn approvals_accumulate_until_threshold() {
+    let env = Env::default();
+    let (client, admin, _) = setup(&env, 2);
+    let backup = Address::generate(&env);
+    let merchant = Address::generate(&env);
+    client.set_signer(&admin, &backup, &1);
 fn setup_multisig() -> (Env, Address, Address, TreasuryContractClient<'static>) {
     let env = Env::default();
     let (client, admin, _) = setup(&env, 2);
@@ -47,6 +62,7 @@ fn execute_missing_settlement_returns_typed_error() {
     let env = Env::default();
     let (client, admin, _) = setup(&env, 2);
     let token = Address::generate(&env);
+    client.execute_settlement(&Address::generate(&env), &999, &token);
     client.execute_settlement(&admin, &999, &token);
 }
 
@@ -70,17 +86,28 @@ fn signer_weight_change_after_approval_does_not_affect_snapshot() {
 // Fix #16: execute should panic when threshold is zero (invalid)
 // We test this by re-initializing with threshold=0
 #[test]
-#[should_panic(expected = "ThresholdNotConfigured")]
-fn execute_rejects_zero_threshold() {
+#[should_panic(expected = "ZeroThreshold")]
+fn initialize_rejects_zero_threshold() {
     let env = Env::default();
-    let (client, admin, _) = setup(&env, 0);
-    let merchant = Address::generate(&env);
-    let token = Address::generate(&env);
-    let sid = client.propose_settlement(&admin, &merchant, &10_000_000);
-    client.execute_settlement(&admin, &sid, &token);
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let id = env.register_contract(None, TreasuryContract);
+    let client = TreasuryContractClient::new(&env, &id);
+    client.initialize(&admin, &0);
 }
 
 // Fix #17: execute should panic when token_contract is the treasury contract itself
+#[test]
+#[should_panic(expected = "InvalidTokenContract")]
+fn execute_rejects_self_as_token_contract() {
+    let env = Env::default();
+    let (client, admin, contract_id) = setup(&env, 1);
+    let merchant = Address::generate(&env);
+    let sid = client.propose_settlement(&admin, &merchant, &10_000_000);
+    client.execute_settlement(&admin, &sid, &contract_id);
+    client.execute_settlement(&admin, &sid, &token);
+}
+
 #[test]
 fn authorized_caller_can_pause() {
     let env = Env::default();
@@ -216,9 +243,13 @@ fn pause_and_unpause_emit_events() {
 
 #[test]
 fn execute_settlement_requires_authorized_signer() {
+    let env = Env::default();
+    let (client, admin, _) = setup(&env, 2);
+    let backup = Address::generate(&env);
     let (env, admin, backup, client) = setup_multisig();
     let merchant = Address::generate(&env);
     let rogue = Address::generate(&env);
+    client.set_signer(&admin, &backup, &1);
     let settlement_id = client.propose_settlement(&admin, &merchant, &10_000_000);
     client.approve_settlement(&backup, &settlement_id);
     let token = env.register_contract(None, TreasuryContract);

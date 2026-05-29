@@ -23,8 +23,7 @@ deploy:
 
 # Regenerate ABI snapshots
 snapshot:
-    @echo "ABI snapshot generation not yet implemented."
-    @echo "Wire to snapshot command once available."
+    @./scripts/generate_abi_metadata.sh abis
 
 # Run format and lint checks (for CI)
 check: fmt lint test
