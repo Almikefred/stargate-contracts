@@ -65,6 +65,9 @@ impl InvoiceContract {
         env.storage()
             .persistent()
             .set(&DataKey::Invoice(id), &invoice);
+        env.storage()
+            .persistent()
+            .extend_ttl(&DataKey::Invoice(id), 6_000_000, 6_000_000);
         env.storage().instance().set(&DataKey::InvoiceCount, &id);
         events::invoice_created(&env, id, &invoice);
         Ok(id)
@@ -93,6 +96,9 @@ impl InvoiceContract {
             env.storage()
                 .persistent()
                 .set(&DataKey::Invoice(id), &invoice);
+            env.storage()
+                .persistent()
+                .extend_ttl(&DataKey::Invoice(id), 6_000_000, 6_000_000);
             events::invoice_expired(&env, id, &invoice);
             return Err(InvoiceError::Expired);
         }
@@ -103,15 +109,23 @@ impl InvoiceContract {
         env.storage()
             .persistent()
             .set(&DataKey::Invoice(id), &invoice);
+        env.storage()
+            .persistent()
+            .extend_ttl(&DataKey::Invoice(id), 6_000_000, 6_000_000);
         events::invoice_paid(&env, id, &invoice);
         Ok(())
     }
 
     pub fn get_invoice(env: Env, id: u64) -> Result<Invoice, InvoiceError> {
-        env.storage()
+        let invoice = env
+            .storage()
             .persistent()
             .get(&DataKey::Invoice(id))
-            .ok_or(InvoiceError::NotFound)
+            .ok_or(InvoiceError::NotFound)?;
+        env.storage()
+            .persistent()
+            .extend_ttl(&DataKey::Invoice(id), 6_000_000, 6_000_000);
+        Ok(invoice)
     }
 
     pub fn pause(env: Env, admin: Address) -> Result<(), InvoiceError> {

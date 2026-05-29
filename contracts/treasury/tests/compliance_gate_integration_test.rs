@@ -63,6 +63,7 @@ impl SettlementWorkflow {
         env: Env,
         compliance_id: Address,
         treasury_id: Address,
+        signer: Address,
         settlement_id: u64,
         token_id: Address,
         merchant: Address,
@@ -72,7 +73,7 @@ impl SettlementWorkflow {
             return Err(WorkflowError::ComplianceFailed);
         }
         let treasury = TreasuryContractClient::new(&env, &treasury_id);
-        treasury.execute_settlement(&settlement_id, &token_id);
+        treasury.execute_settlement(&signer, &settlement_id, &token_id);
         Ok(())
     }
 }
@@ -131,6 +132,7 @@ fn settlement_proceeds_when_compliance_passing() {
     workflow.execute_with_compliance(
         &compliance_id,
         &treasury_id,
+        &admin,
         &settlement_id,
         &token_id,
         &merchant,
@@ -156,6 +158,7 @@ fn settlement_rejected_when_compliance_absent_or_failing() {
         .try_execute_with_compliance(
             &compliance_id,
             &treasury_id,
+            &admin,
             &settlement_id,
             &token_id,
             &merchant,
@@ -183,6 +186,7 @@ fn settlement_rejected_when_compliance_paused_and_unable_to_pass() {
         .try_execute_with_compliance(
             &compliance_id,
             &treasury_id,
+            &admin,
             &settlement_id,
             &token_id,
             &merchant,

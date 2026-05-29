@@ -7,9 +7,9 @@ pub use multisig::{DataKey, Dispute, DisputeStatus, Settlement, SettlementStatus
 
 use settlement::{require_authorized_signer, signer_weight};
 use soroban_sdk::{contract, contractimpl, token, Address, Env, Symbol, Vec};
-use soroban_sdk::{contract, contractimpl, contracttype, token, Address, Env, Symbol, Vec};
 
 impl TreasuryError {
+    #[allow(dead_code)]
     fn panic(&self) -> ! {
         match self {
             TreasuryError::AlreadyInitialized => panic!("AlreadyInitialized"),
@@ -99,6 +99,9 @@ impl TreasuryContract {
         env.storage()
             .persistent()
             .set(&DataKey::Settlement(id), &settlement);
+        env.storage()
+            .persistent()
+            .extend_ttl(&DataKey::Settlement(id), 6_000_000, 6_000_000);
         env.storage().instance().set(&DataKey::SettlementCount, &id);
         env.events()
             .publish((Symbol::new(&env, "settlement_proposed"), id), settlement);
@@ -125,6 +128,11 @@ impl TreasuryContract {
         env.storage()
             .persistent()
             .set(&DataKey::Settlement(settlement_id), &settlement);
+        env.storage().persistent().extend_ttl(
+            &DataKey::Settlement(settlement_id),
+            6_000_000,
+            6_000_000,
+        );
         env.events().publish(
             (Symbol::new(&env, "settlement_approved"), settlement_id),
             settlement.clone(),
@@ -132,7 +140,12 @@ impl TreasuryContract {
         settlement
     }
 
-    pub fn execute_settlement(env: Env, signer: Address, settlement_id: u64, token_contract: Address) {
+    pub fn execute_settlement(
+        env: Env,
+        signer: Address,
+        settlement_id: u64,
+        token_contract: Address,
+    ) {
         Self::require_not_paused(&env);
         // Fix #13: return typed error instead of unwrap panic
         require_authorized_signer(&env, &signer);
@@ -170,6 +183,11 @@ impl TreasuryContract {
         env.storage()
             .persistent()
             .set(&DataKey::Settlement(settlement_id), &settlement);
+        env.storage().persistent().extend_ttl(
+            &DataKey::Settlement(settlement_id),
+            6_000_000,
+            6_000_000,
+        );
         env.events().publish(
             (Symbol::new(&env, "settlement_executed"), settlement_id),
             settlement,
